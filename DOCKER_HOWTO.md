@@ -1,8 +1,12 @@
 # Docker Build Environment for Zephyr RTOS
 
 This document explains how to build and use the Docker image that provides a
-self-contained build environment for the **Zephyr RTOS** project targeting the
+build environment for the **Zephyr RTOS** project targeting the
 **STM32 Nucleo L010RB** board.
+
+The Docker image contains **only the toolchain** (SDK, CMake, Ninja, Python).  
+The Zephyr source tree and HAL modules live on the host and are fetched by a
+standalone script, then volume-mounted into the container at runtime.
 
 ---
 
@@ -11,6 +15,7 @@ self-contained build environment for the **Zephyr RTOS** project targeting the
 | Tool    | Minimum Version |
 |---------|-----------------|
 | Docker  | 20.10+          |
+| Git     | 2.25+           |
 | Bash    | 4.0+            |
 
 Make sure the Docker daemon is running:
@@ -26,13 +31,20 @@ docker info
 ```
 sample1/
 ├── docker/
-│   └── Dockerfile          # Build environment image definition
+│   └── Dockerfile          # Toolchain-only image (SDK + CMake + Ninja)
 ├── app/
 │   ├── CMakeLists.txt      # CMake project (no west required)
 │   ├── prj.conf            # Zephyr Kconfig options
 │   └── src/
 │       └── main.c          # Hello World application
+├── zephyrproject/           ← created by fetch_zephyr.sh
+│   ├── zephyr/             #   Zephyr kernel source
+│   └── modules/            #   HAL / lib modules
+│       ├── hal/stm32/
+│       ├── hal/cmsis/
+│       └── lib/picolibc/
 ├── build_docker.sh         # Builds the Docker image
+├── fetch_zephyr.sh         # Clones Zephyr + modules to host
 ├── run_docker.sh           # Starts an interactive container
 ├── build.sh                # Builds the firmware inside the container
 ├── DOCKER_HOWTO.md         # ← You are here
@@ -54,9 +66,9 @@ This creates a Docker image called **`zephyr-build:latest`** that contains:
 - CMake 3.28
 - Ninja build system
 - Zephyr SDK 0.16.8 (ARM toolchain)
-- Zephyr RTOS v3.7.0 source tree at `/opt/zephyr`
-- All required STM32 HAL / CMSIS submodules
-- Python dependencies for Zephyr's build system
+
+> The image does **not** contain the Zephyr source or modules – those are
+> fetched separately in Step 2.
 
 > **Tip:** Override the image name/tag with environment variables:
 > ```bash
@@ -65,19 +77,43 @@ This creates a Docker image called **`zephyr-build:latest`** that contains:
 
 ---
 
-## Step 2 – Start the Container
+## Step 2 – Fetch Zephyr Source and Modules
+
+```bash
+chmod +x fetch_zephyr.sh
+./fetch_zephyr.sh
+```
+
+This clones the Zephyr kernel and the required STM32 modules into
+`zephyrproject/` on the host. Override the version with:
+
+```bash
+ZEPHYR_VERSION=v3.6.0 ./fetch_zephyr.sh
+```
+
+The script is **idempotent** — re-running it skips repos that already exist.
+
+---
+
+## Step 3 – Start the Container
 
 ```bash
 chmod +x run_docker.sh
 ./run_docker.sh
 ```
 
-This starts an **interactive bash shell** inside the container.  
-Your project directory is mounted at `/workspace`.
+This starts an **interactive bash shell** inside the container with two mounts:
+
+| Host path             | Container path     | Purpose                    |
+|-----------------------|--------------------|----------------------------|
+| `./` (project root)  | `/workspace`       | Your application code      |
+| `./zephyrproject/`   | `/zephyrproject`   | Zephyr kernel + modules    |
+
+`ZEPHYR_BASE` and `ZEPHYR_MODULES` are set automatically.
 
 ---
 
-## Step 3 – Build the Firmware (inside the container)
+## Step 4 – Build the Firmware (inside the container)
 
 Once inside the container shell:
 

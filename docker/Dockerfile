@@ -1,16 +1,18 @@
 # =============================================================================
 # Dockerfile for Zephyr RTOS Build Environment
 # Target: STM32 Nucleo L010RB (nucleo_l010rb)
+#
+# This image contains ONLY the build toolchain (SDK, CMake, Ninja, Python).
+# Zephyr source and HAL modules live on the host and are mounted at runtime.
 # =============================================================================
 FROM ubuntu:22.04
 
 ARG ZEPHYR_SDK_VERSION=0.16.8
-ARG ZEPHYR_VERSION=v3.7.0
 ARG CMAKE_VERSION=3.28.1
 ARG DEBIAN_FRONTEND=noninteractive
 
 LABEL maintainer="zephyr-dev"
-LABEL description="Zephyr RTOS build environment for STM32 Nucleo L010RB"
+LABEL description="Zephyr RTOS build toolchain for STM32 Nucleo L010RB"
 
 # ---------------------------------------------------------------------------
 # 1. Install system dependencies
@@ -62,34 +64,38 @@ RUN wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZE
     && ./setup.sh -t arm-zephyr-eabi -c
 
 ENV ZEPHYR_SDK_INSTALL_DIR=/opt/zephyr-sdk-${ZEPHYR_SDK_VERSION}
-
-# ---------------------------------------------------------------------------
-# 4. Clone Zephyr RTOS source and required submodules for STM32
-# ---------------------------------------------------------------------------
-WORKDIR /opt/zephyr
-RUN git clone --branch ${ZEPHYR_VERSION} --depth 1 \
-    https://github.com/zephyrproject-rtos/zephyr.git .
-
-# Install Zephyr's Python dependencies
-RUN pip3 install --no-cache-dir -r /opt/zephyr/scripts/requirements.txt
-
-# Initialize and fetch only STM32-related submodules (HAL, CMSIS)
-RUN git submodule init \
-    modules/hal/stm32 \
-    modules/hal/cmsis \
-    modules/lib/picolibc \
-    && git submodule update --depth 1 \
-    modules/hal/stm32 \
-    modules/hal/cmsis \
-    modules/lib/picolibc
-
-ENV ZEPHYR_BASE=/opt/zephyr
 ENV ZEPHYR_TOOLCHAIN_VARIANT=zephyr
 
 # ---------------------------------------------------------------------------
-# 5. Set up workspace directory
+# 3.5. Install Python dependencies needed by Zephyr
 # ---------------------------------------------------------------------------
-RUN mkdir -p /workspace
+RUN pip3 install --no-cache-dir \
+    west \
+    pyelftools \
+    pyyaml \
+    pykwalify \
+    canopen \
+    packaging \
+    progress \
+    psutil \
+    pylink-square \
+    anytree \
+    intelhex \
+    cryptography \
+    gcovr \
+    pillow \
+    grpcio-tools \
+    lpc-checksum \
+    pylint \
+    colorama \
+    natsort \
+    prettytable \
+    tabulate
+
+# ---------------------------------------------------------------------------
+# 4. Set up workspace directory
+# ---------------------------------------------------------------------------
+RUN mkdir -p /workspace /zephyrproject
 WORKDIR /workspace
 
 CMD ["/bin/bash"]

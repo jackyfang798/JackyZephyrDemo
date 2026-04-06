@@ -6,18 +6,27 @@ cmake_minimum_required(VERSION 3.20.0)
 
 # --------------------------------------------------------------------------
 # ZEPHYR_BASE must point to the Zephyr source tree.
-# Inside the Docker container it is /opt/zephyr.
-# On a host system, set it via environment variable or pass -DZEPHYR_BASE=...
+# Inside the Docker container it is /zephyrproject/zephyr (set by run_docker.sh).
+# On the host, set it via environment variable or pass -DZEPHYR_BASE=...
 # --------------------------------------------------------------------------
 if(NOT DEFINED ENV{ZEPHYR_BASE} AND NOT DEFINED ZEPHYR_BASE)
     message(FATAL_ERROR
         "ZEPHYR_BASE is not set. "
         "Export ZEPHYR_BASE to point to the Zephyr source tree, e.g.:\n"
-        "  export ZEPHYR_BASE=/opt/zephyr"
+        "  export ZEPHYR_BASE=/zephyrproject/zephyr"
     )
 endif()
 
+# Set the target board if not already provided via -DBOARD=...
+if(NOT DEFINED BOARD AND DEFINED ENV{BOARD})
+    set(BOARD $ENV{BOARD})
+endif()
+if(NOT DEFINED BOARD)
+    set(BOARD nucleo_l010rb)
+endif()
+
 # Pull in the Zephyr build system (this replaces the west build step)
+# ZEPHYR_MODULES is passed via environment or -D flag by build.sh
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 project(hello_world LANGUAGES C)
