@@ -24,14 +24,17 @@ fi
 echo "============================================="
 echo "  Starting container: ${CONTAINER_NAME}"
 echo "  Image : ${IMAGE_NAME}:${IMAGE_TAG}"
+echo "  User  : $(id -u):$(id -g)"
 echo "  Mount : ${SCRIPT_DIR}            -> /workspace"
 echo "  Mount : ${ZEPHYR_PROJECT_DIR}    -> /zephyrproject"
 echo "============================================="
 
 docker run -it --rm \
     --name "${CONTAINER_NAME}" \
+    --user "$(id -u):$(id -g)" \
     -v "${SCRIPT_DIR}":/workspace \
     -v "${ZEPHYR_PROJECT_DIR}":/zephyrproject \
+    -e HOME=/tmp \
     -e ZEPHYR_BASE=/zephyrproject/zephyr \
     -e ZEPHYR_MODULES="/zephyrproject/modules/hal/stm32;/zephyrproject/modules/hal/cmsis;/zephyrproject/modules/lib/picolibc" \
     -w /workspace \
